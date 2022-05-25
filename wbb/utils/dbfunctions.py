@@ -23,6 +23,8 @@ SOFTWARE.
 """
 import codecs
 import pickle
+from string import ascii_lowercase
+
 from typing import Dict, List, Union
 
 from wbb import db
@@ -54,6 +56,7 @@ blacklist_chatdb = db.blacklistChat
 restart_stagedb = db.restart_stage
 flood_toggle_db = db.flood_toggle
 rssdb = db.rss
+chatbotdb = db.chatbot
 
 
 def obj_to_str(obj):
@@ -185,7 +188,7 @@ async def delete_filter(chat_id: int, name: str) -> bool:
 
 
 async def int_to_alpha(user_id: int) -> str:
-    alphabet = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
+    alphabet = list(ascii_lowercase)[:10]
     text = ""
     user_id = str(user_id)
     for i in user_id:
@@ -194,7 +197,7 @@ async def int_to_alpha(user_id: int) -> str:
 
 
 async def alpha_to_int(user_id_alphabet: str) -> int:
-    alphabet = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
+    alphabet = list(ascii_lowercase)[:10]
     user_id = ""
     for i in user_id_alphabet:
         index = alphabet.index(i)
@@ -747,3 +750,26 @@ async def get_rss_feeds() -> list:
 
 async def get_rss_feeds_count() -> int:
     return len([i async for i in rssdb.find({"chat_id": {"$exists": 1}})])
+
+
+async def check_chatbot():
+    return (
+        await chatbotdb.find_one({"chatbot": "chatbot"}) or {"bot": [], "userbot": []}
+    )
+
+async def add_chatbot(chat_id: int, is_userbot: bool = False):
+    list_id = await check_chatbot()
+    if is_userbot:
+        list_id["userbot"].append(chat_id)
+    else:
+        list_id["bot"].append(chat_id)
+    await chatbotdb.update_one({"chatbot": "chatbot"}, {"$set": list_id}, upsert=True)
+
+
+async def rm_chatbot(chat_id: int, is_userbot: bool = False):
+    list_id = await check_chatbot()
+    if is_userbot:
+        list_id["userbot"].remove(chat_id)
+    else:
+        list_id["bot"].remove(chat_id)
+    await chatbotdb.update_one({"chatbot": "chatbot"}, {"$set": list_id}, upsert=True)
